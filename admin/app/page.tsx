@@ -11,17 +11,25 @@ export default function Page() {
   const [images, setImages] = useState<any[]>([])
   const [captions, setCaptions] = useState<any[]>([])
 
-  const [page, setPage] = useState(1)
-  const IMAGES_PER_PAGE = 20
+  const [imagePage, setImagePage] = useState(1)
+  const [profilePage, setProfilePage] = useState(1)
+  const [captionPage, setCaptionPage] = useState(1)
+  const ITEMS_PER_PAGE = 10
 
-  const fetchAll = async (currentPage: number) => {
-    const from = (currentPage - 1) * IMAGES_PER_PAGE
-    const to = from + IMAGES_PER_PAGE - 1
+  const fetchAll = async (currentImagePage: number, currentProfilePage: number, currentCaptionPage: number) => {
+    const imageFrom = (currentImagePage - 1) * ITEMS_PER_PAGE
+    const imageTo = imageFrom + ITEMS_PER_PAGE - 1
+
+    const profileFrom = (currentProfilePage - 1) * ITEMS_PER_PAGE
+    const profileTo = profileFrom + ITEMS_PER_PAGE - 1
+
+    const captionFrom = (currentCaptionPage - 1) * ITEMS_PER_PAGE
+    const captionTo = captionFrom + ITEMS_PER_PAGE - 1
 
     const [profilesRes, imagesRes, captionsRes] = await Promise.all([
-      supabase.from('profiles').select('*'),
-      supabase.from('images').select('*').range(from, to),
-      supabase.from('captions').select('*'),
+      supabase.from('profiles').select('*').range(profileFrom, profileTo),
+      supabase.from('images').select('*').range(imageFrom, imageTo),
+      supabase.from('captions').select('*, images(url)').range(captionFrom, captionTo),
     ])
 
     if (!profilesRes.error) setProfiles(profilesRes.data)
@@ -46,10 +54,8 @@ export default function Page() {
         if (!error) {
           const admin = data?.is_superadmin ?? false
           setIsAdmin(admin)
-          if (admin) await fetchAll(1)
+          if (admin) await fetchAll(1, 1, 1)
         } else {
-
-
           setIsAdmin(false)
         }
       }
@@ -67,32 +73,23 @@ export default function Page() {
 
   useEffect(() => {
     if (!isAdmin) return
-    fetchAll(page)
-  }, [page])
+    fetchAll(imagePage, profilePage, captionPage)
+  }, [imagePage, profilePage, captionPage])
 
   const refreshImages = async () => {
-    const from = (page - 1) * IMAGES_PER_PAGE
-    const to = from + IMAGES_PER_PAGE - 1
-    const { data, error } = await supabase
-      .from('images')
-      .select('*')
-      .range(from, to)
+    const from = (imagePage - 1) * ITEMS_PER_PAGE
+    const to = from + ITEMS_PER_PAGE - 1
+    const { data, error } = await supabase.from('images').select('*').range(from, to)
     if (!error) setImages(data)
   }
 
   const updateImage = async (id: string, newUrl: string) => {
-    const { error } = await supabase
-      .from('images')
-      .update({ url: newUrl })
-      .eq('id', id)
+    const { error } = await supabase.from('images').update({ url: newUrl }).eq('id', id)
     if (!error) refreshImages()
   }
 
   const deleteImage = async (id: string) => {
-    const { error } = await supabase
-      .from('images')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('images').delete().eq('id', id)
     if (!error) refreshImages()
   }
 
@@ -128,9 +125,6 @@ export default function Page() {
     return <p style={{ textAlign: 'center' }}>Loading...</p>
   }
 
-  const nextPage = () => setPage((prev) => prev + 1)
-  const prevPage = () => setPage((prev) => Math.max(prev - 1, 1))
-
   return (
     <div style={{ textAlign: 'center', marginTop: '100px' }}>
       <p>Logged in as: {user.email}</p>
@@ -145,7 +139,20 @@ export default function Page() {
 
       {isAdmin ? (
         <>
-          <h2>Profiles</h2>
+          {/* PROFILES TABLE */}
+          <h2>
+            <button
+              onClick={() => setProfilePage((prev) => Math.max(prev - 1, 1))}
+              disabled={profilePage === 1}
+              style={{ marginRight: '12px' }}
+            >⬅️</button>
+            Profiles (Page {profilePage})
+            <button
+              onClick={() => setProfilePage((prev) => prev + 1)}
+              disabled={profiles.length < ITEMS_PER_PAGE}
+              style={{ marginLeft: '12px' }}
+            >➡️</button>
+          </h2>
           <table border={1} style={{ margin: '0 auto', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -177,7 +184,20 @@ export default function Page() {
             </tbody>
           </table>
 
-          <h2>Images (Page {page})</h2>
+          {/* IMAGES TABLE */}
+          <h2>
+            <button
+              onClick={() => setImagePage((prev) => Math.max(prev - 1, 1))}
+              disabled={imagePage === 1}
+              style={{ marginRight: '12px' }}
+            >⬅️</button>
+            Images (Page {imagePage})
+            <button
+              onClick={() => setImagePage((prev) => prev + 1)}
+              disabled={images.length < ITEMS_PER_PAGE}
+              style={{ marginLeft: '12px' }}
+            >➡️</button>
+          </h2>
           <table border={1} style={{ margin: '0 auto', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -209,16 +229,25 @@ export default function Page() {
             </tbody>
           </table>
 
-          <div style={{ marginTop: '10px' }}>
-            <button onClick={prevPage} disabled={page === 1}>⬅️ Previous</button>
-            <button onClick={nextPage} style={{ marginLeft: '10px' }}>Next ➡️</button>
-          </div>
-
-          <h2>Captions</h2>
+          {/* CAPTIONS TABLE */}
+          <h2>
+            <button
+              onClick={() => setCaptionPage((prev) => Math.max(prev - 1, 1))}
+              disabled={captionPage === 1}
+              style={{ marginRight: '12px' }}
+            >⬅️</button>
+            Captions (Page {captionPage})
+            <button
+              onClick={() => setCaptionPage((prev) => prev + 1)}
+              disabled={captions.length < ITEMS_PER_PAGE}
+              style={{ marginLeft: '12px' }}
+            >➡️</button>
+          </h2>
           <table border={1} style={{ margin: '0 auto', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <th style={{ padding: '8px' }}>ID</th>
+                <th style={{ padding: '8px' }}>Image</th>
                 <th style={{ padding: '8px' }}>Data</th>
               </tr>
             </thead>
@@ -226,6 +255,13 @@ export default function Page() {
               {captions.map((caption) => (
                 <tr key={caption.id}>
                   <td style={{ padding: '8px' }}>{caption.id}</td>
+                  <td style={{ padding: '8px' }}>
+                    {caption.images?.url ? (
+                      <img src={caption.images.url} alt="" width={80} />
+                    ) : (
+                      'No image'
+                    )}
+                  </td>
                   <td style={{ padding: '8px' }}>{JSON.stringify(caption)}</td>
                 </tr>
               ))}
